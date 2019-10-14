@@ -1,0 +1,77 @@
+# Service configuration
+# You can configure the service exposure here
+# be-serviceName for BackEnd, bff-serviceName for BackendForFrontend, dal-serviceName for Data Abstraction Layer
+
+# POD - API configuration (with google endpoints)
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  # Normal service name
+  name: project-greeting-dal
+spec:
+  # Quantity of replicas
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: project-greeting-dal
+  template:
+    metadata:
+      labels:
+        # Normal service name and tier (same selectors as the service configuration)
+        app: project-greeting-dal
+        tier: data-abstraction-layer
+    spec:
+      volumes:
+        - name: service-account-creds
+          secret:
+            secretName: service-account-creds
+      containers:
+      # Normal service name
+      - name: project-greeting-dal
+        image: gcr.io/project-id/project-greeting-dal:{IMAGE_TAG}
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 8080
+            protocol: TCP
+        env:
+          - name: SALUDO_MENSAJE
+            value: Bienvenido
+      # [START healthCheck Declaration]
+#        livenessProbe:
+#          failureThreshold: 3
+#          httpGet:
+#            path: /dal/example
+#            port: 8080
+#            scheme: HTTP
+#          initialDelaySeconds: 60
+#          periodSeconds: 6
+#          successThreshold: 1
+#          timeoutSeconds: 5
+        # [END healthCheck Declaration]
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # Normal service name
+  name: project-greeting-dal
+spec:
+  ports:
+   # this will result in a NodePort with expose in http port 80
+  - port: 80
+    # 8080 normal service, 8081 service with endpoints
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    # Normal service name and tier
+    app: project-greeting-dal
+    tier: data-abstraction-layer
+    # LOCAL/INTERNAL: NodePort, GCP/EXTERNAL: LoadBalancer
+  type: NodePort
